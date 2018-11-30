@@ -110,12 +110,18 @@ Any custom words for spell checking should be added to link:./custom.wordlist[`c
 This document has been created by the following people (in alphabetical order of surname).
 
 [quote]
-Jeremy Bennett, Mary Bennett, Simon Davidmann, Neel Gala, Radek Hajek, Lee Moore, Milan Nostersky, Premysl Vaclavik, Marcela Zachariasova.
+Jeremy Bennett, Mary Bennett, Simon Davidmann, Neel Gala, Radek Hajek, Lee Moore, Milan Nostersky, Milan Skala, Premysl Vaclavik, Marcela Zachariasova.
 
 === Document history
 [cols="<1,<2,<3,<4",options="header,pagewidth",]
 |================================================================================
 | _Revision_ | _Date_            | _Author_ | _Modification_
+
+| 1.14 Draft  | 30 Nov 2018      |
+
+Radek Hajek, Milan Skala |
+
+Temporary disabled old framework related sections in documentation.
 
 | 1.13 Draft  | 19 Nov 2018      |
 
@@ -233,7 +239,7 @@ The RISC-V specification allows many optional instructions, registers, and other
 
 === The test signature
 
-The _test signature_ is defined as reference data written into memory during the execution of the test.  It should record values and results of the operation of the Test. It is expected that an implementation, at the end of a test, dumps the signature in to a file such that only 4-bytes are written per line, starting with the most-significant byte on the left.
+The _test signature_ is defined as reference data written into memory during the execution of the test.  It should record values and results of the operation of the Test. It is expected that an implementation, at the end of a test, dumps the signature in to a file.
 
 === The test reference signature
 
@@ -243,7 +249,6 @@ The _test reference signature_ is the _test signature_ saved from an execution r
 
 Tests are grouped into different functional test suites targeting the different subsets of the full RISC-V specifications.  There will be ISA and privilege suites.
 
-For information on the status of the different test suites, look here: link:../riscv-test-suite/README.md[../riscv-test-suite/README.md]
 
 
 === The test framework
@@ -435,162 +440,8 @@ For a test suite to be complete it needs to have tests that exercise the full fu
 
 == Test framework
 
-For running compliance tests, the Test Virtual Machine (TVM) “p” available at https://github.com/riscv/riscv-tests is utilized.
+Framework documentation is currently described in different document. These documents need to be merged together.
 
-In addition to using the basic functionality of the TVM, the script for running compliance tests runs the test on the target and then performs comparison of the target’s generated test signature to the manually reviewed test reference signature.
-
-See the chapter below for selecting and setting up the target (simulator, or hardware, etc.).
-
-If using a target that requires the processor to be configured, see the chapter below on processor configuration.
-
-You will also need to have a suitable compiler tool chain (GCC or LLVM) installed in your environment and available on your path.
-
-Tests are run by commands in the top level `Makefile` which has targets for simulate and verify
-
-[source,make]
-----
-RISCV_TARGET ?= riscvOVPsim
-RISCV_DEVICE ?= rv32i
-RISCV_PREFIX ?= riscv64-unknown-elf-
-
-simulate:
-        make RISCV_TARGET=$(RISCV_TARGET) \
-             RISCV_DEVICE=$(RISCV_DEVICE) \
-             RISCV_PREFIX=$(RISCV_PREFIX) \
-             run -C $(SUITEDIR)
-
-verify:
-    riscv-test-env/verify.sh
-----
-
-== Setting the target environment
-
-The target environment needs setting up to allow the compliance tests to be run on the target.  This can be used while developing compliance test suites or it can be used with new targets to see if they correctly execute the compliance test suites and are compliant!
-
-This chapter provides information on the currently available targets and includes a short tutorial on how to add a new target.
-
-=== Imperas riscvOVPsim compliance simulator
-
-For tracing the test the following  macros are defined in `riscv-target/riscvOVPsim/compliance_io.h`:
-
-[source,make]
-----
-RVTEST_IO_INIT
-RVTEST_IO_WRITE_STR(_STR)
-RVTEST_IO_ASSERT_GPR_EQ(_R, _I)
-----
-
-An example of a test that uses the tracing macros is `riscv-test-suite/rv32i/ISA/src/I-IO.S`.
-
-To configure the simulator for different target devices there needs to be a Makefile fragment in the `device` directory.
-
-The Makefile fragment for RV32I is in `riscv-target/riscvOVPsim/device/rv32i`
-
-In the top level Makefile there needs to be a selection for the target and device:
-[source,make]
-----
-RISCV_TARGET?=riscvOVPsim
-RISCV_DEVICE?=rv32i
-----
-
-The path to the RUN_TARGET is defined within the riscv-target Makefile.include.
-
-
-=== Codasip ISA simulator
-
-tbd
-
-=== GNU CGEN ISS
-==== Within GDB
-
-tbd
-
-==== Via GDB Remote Serial Protocol
-
-tbd
-
-=== Berkeley Spike ISA simulator
-For spike the file `riscv-target/spike/compliance_io.h` has the trace macros defined as empty.  The Makefile fragment in `riscv-target/spike/device/rv32i` has the spike run command for the RV32I device.
-
-=== SiFive Freedom Unleashed 540 board (tbd)
-
-tbd
-
-=== Verilator Verilog RI5CY RTL processor
-==== With GDB Server
-
-tbd
-
-==== With testbench monitor
-
-tbd
-
-=== Adding a new Target
-
-In this section, a short tutorial how to add a user target in the TVM is provided.
-
-If you do not want to use the TVM at all, it is recommended to just take the tests and references and incorporate them into your testing environment.  The only requirement needed in this case is that there must be an option to dump the results from the target in the test environment so as the comparison to test reference signature is possible.
-
-The following steps demonstrate an example in which a target was replaced by Codasip ISA simulator. In a similar way, any RISC-V ISA simulator or any RTL simulation model of the RISC-V processor can be connected.
-
-* Redefine macros in `ISA/src/compliance_test.h` and `binary_coding/src/compliance_test.h`.
-+
-For example, to support Codasip ISA simulator as Target, it was necessary to redefine `RV_COMPLIANCE_HALT macro`, `RV_COMPLIANCE_DATA_BEGIN` macro and `RV_COMPLIANCE_DATA_END` macro in `ISA/compliance_test.h` in the following way:
-+
-[source,c]
-----
-#define RV_COMPLIANCE_HALT
-        add     x31, x0, 1
-        sw      x31, codasip_syscall, t0
-----
-
-* This means that on the address defined by `codasip_syscall`, the 1 value is stored and this is interpreted as `HALT` for the Codasip ISA simulator.
-+
-[source,c]
-----
-#define RV_COMPLIANCE_DATA_BEGIN
-        .align  4;
-        .global codasip_signature_start;
-codasip_signature_start:
-----
-+
-[source,c]
-----
-#define RV_COMPLIANCE_DATA_END
-        .align  4;
-        .global codasip_signature_end;
-codasip_signature_end:
-----
-
-* The Codasip ISA simulator dumps data from the addresses bounded by labels `codasip_signature_start` and `codasip_signature_end` to `stdout`.  The dumped data represent the results of the tests.
-
-* Modify Makefiles in `ISA/Makefile` and `binary_coding/Makefile`.  It is important to change tools that are evaluated and parameters that are passed to the tools.
-+
-For example, to support the Codasip ISA simulator as the device under test
-(DUT), it was necessary to change `RISCV_SIM` from `spike` to
-`codix_berkelium-ia-isimulator –r` and parameters for running the simulator
-from `+signature=$(work_dir)/$<.signature.output` to `–info 5` plus handle
-redirection to a file by `1>$(work_dir)/$<.signature.output`.
-
-== Configuring the target device
-
-This section is for how to specify which optional parts are being used
-
-NOTE: This is primarily for simulators.
-
-In the directory `riscv-target/*/device` there are directories that have Makefile fragments that configure the simulator to simulate only those parts of the RISC-V specification that is required for the specific target device being tested.
-
-For example for the riscvOVPsim to be configured to be a RV32I
-[source,make]
-----
-RUN_TARGET= \
-        riscvOVPsim.exe --variant RV32I --program $(work_dir_isa)/$< \
-            --signaturedump \
-            --override riscvOVPsim/cpu/sigdump/SignatureFile=$(work_dir_isa)/$(*).signature.output \
-            --override riscvOVPsim/cpu/sigdump/ResultReg=3 \
-            --override riscvOVPsim/cpu/simulateexceptions=T \
-            --logfile $(work_dir_isa)/$@
-----
 [appendix]
 
 === Example - ISA test _ADD-01.S_
@@ -904,15 +755,9 @@ RV_COMPLIANCE_DATA_END
 [appendix]
 == Repository structure
 
-The top level directory contains a `README.md` file giving an overview of the project, top level `Makefile`, `ChangeLog`, the `verify.sh` script and complete license files for the Creative Commons and BSD licenses used by the task group.  There are then four top level directories.
+The top level directory contains a `README.md` file giving an overview of the project, `ChangeLog` and complete license files for the Creative Commons and BSD licenses used by the task group. 
 
-`doc`:: All the documentation for the project, written using _AsciiDoc_.
-
-`riscv-target`:: Contains a further subdirectory for each target, within which are placed the `compliance_io.h` header for that target and a `device` directory for all the devices of that target. If the `$TARGETDIR` environment variable is set to another directory, the scripts will search this directory for targets instead.
-
-`riscv-test-env`:: This contains headers common to all environments, and then a directory for each TVM variant, with `link.ld` linker script and `riscv_test.h` header.
-
-`riscv-test-suite`:: This contains a subdirectory for each instruction set or instruction set extension.  Within each subdirectory the source code and reference output for each test are in the `ISA` directory.
+`TO BE ADDED`:: There are then * top level directories.
 
 `riscv-ovpsim`:: This contains a copy of the Imperas OVP riscvOVPsim simulator for use in compliance testing. It includes a subdirectory of examples with pre-compiled .elf files and has binaries of the simulator for Linux64 and Windows64. This is referenced by the makefiles for developing and running the compliance suites. riscvOVPsim can run all the tracing and assertion macros used in the tests.
 

@@ -1,0 +1,5 @@
+_build
+build
+source/_rvtest*.rst
+source/compliance_tests*.rst
+source/modules.rst

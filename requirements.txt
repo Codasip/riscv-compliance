@@ -1,0 +1,5 @@
+Tkinter
+Pillow
+pytest
+pytest-html
+pytest-xdist

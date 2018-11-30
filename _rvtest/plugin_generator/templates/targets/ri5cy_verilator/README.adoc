@@ -1,0 +1,144 @@
+= RI5CY verilator target
+
+This is target for running compliance testsuite with RI5CY core.
+The publicly available core can be found at:
+https://github.com/pulp-platform/riscv
+
+== Testbench integration
+
+There are few modifications in testbench.cpp that are neccessary to enable running compliance tests with verilator.
+
+- adding input arguments for testbench
+- load program from given file in hex format
+- print signature to file
+
+=== Adding input arguments for testbench
+
+There are 3 input arguments:
+ 
+* "-i" - program file location (hex format from elf2hex)
+ 
+* "-s" - start address of the signature
+ 
+* "-e" - end address of the signature
+ 
+
+Include headers
+....
+    #include <unistd.h>
+    #include <iostream>
+    #include <iomanip>
+    #include <cstdint>
+    #include <cstdlib>
+    #include <fstream>
+....
+
+Parse input arguments:
+....
+    std::string file_name;
+    int c, iflag = 0;
+    int sig_start, sflag = 0;
+    int sig_end, eflag = 0;
+    while ((c = getopt(argc, (char**)argv, "i:s:e:")) != -1)
+    {
+        switch (c)
+        {
+            case 'i':
+                file_name = optarg;
+                iflag = 1;
+                break;
+            case 's':
+                sig_start = std::stoi(optarg);
+                sflag = 1;
+                break;
+            case 'e':
+                sig_end = std::stoi(optarg);
+                eflag = 1;
+                break;
+            default:
+                std::cerr << "Unsupported argument" << std::endl;
+                return -1;    
+                break;
+        }
+    }
+
+    if (!iflag)
+    {
+        std::cerr << "Not found mandatory input argument -i" << std::endl;
+        return -1; 
+    }
+....
+   
+=== Load program from given file in hex format
+Load program from given file. File is expected to be in hex format having single byte on single line.
+
+....  
+    bool loadProgram(const std::string &file_name)
+    {
+        uint32_t addr = 0x0;
+        std::fstream fs;
+        int number;
+        
+        fs.open(file_name, std::fstream::in);
+
+        if (!fs.is_open())
+        {
+            std::cerr << "Unable to open file " << file_name << std::endl;
+            return false;
+        }
+
+        while (fs >> std::hex >> number)
+        {
+            cpu->top->ram_i->dp_ram_i->writeByte (addr, number);
+            addr++;
+        }
+        fs.close();
+
+        return true;
+    }
+
+    // load program into memory
+    if (!loadProgram(file_name))
+    {
+        return -1;
+    }
+....
+
+=== Print signature to file
+Print signature in old format into test_signature.sig file
+
+....
+    if (sflag && eflag)
+    {
+        // print signature
+        printSignature(sig_start, sig_end);
+    }
+    
+    void printSignature(int addr_start, int addr_end)
+    {
+        std::fstream fs;
+        fs.open("test_signature.sig", std::fstream::out);
+
+        for (int i = addr_start; i < addr_end; i = i + 16)
+        {
+            fs << std::setfill('0') << std::setw(2) << std::hex << cpu->top->ram_i->dp_ram_i->readByte(i + 15);
+            fs << std::setfill('0') << std::setw(2) << std::hex << cpu->top->ram_i->dp_ram_i->readByte(i + 14);
+            fs << std::setfill('0') << std::setw(2) << std::hex << cpu->top->ram_i->dp_ram_i->readByte(i + 13);
+            fs << std::setfill('0') << std::setw(2) << std::hex << cpu->top->ram_i->dp_ram_i->readByte(i + 12);
+            fs << std::setfill('0') << std::setw(2) << std::hex << cpu->top->ram_i->dp_ram_i->readByte(i + 11);
+            fs << std::setfill('0') << std::setw(2) << std::hex << cpu->top->ram_i->dp_ram_i->readByte(i + 10);
+            fs << std::setfill('0') << std::setw(2) << std::hex << cpu->top->ram_i->dp_ram_i->readByte(i + 9);
+            fs << std::setfill('0') << std::setw(2) << std::hex << cpu->top->ram_i->dp_ram_i->readByte(i + 8);
+            fs << std::setfill('0') << std::setw(2) << std::hex << cpu->top->ram_i->dp_ram_i->readByte(i + 7);
+            fs << std::setfill('0') << std::setw(2) << std::hex << cpu->top->ram_i->dp_ram_i->readByte(i + 6);
+            fs << std::setfill('0') << std::setw(2) << std::hex << cpu->top->ram_i->dp_ram_i->readByte(i + 5);
+            fs << std::setfill('0') << std::setw(2) << std::hex << cpu->top->ram_i->dp_ram_i->readByte(i + 4);
+            fs << std::setfill('0') << std::setw(2) << std::hex << cpu->top->ram_i->dp_ram_i->readByte(i + 3);
+            fs << std::setfill('0') << std::setw(2) << std::hex << cpu->top->ram_i->dp_ram_i->readByte(i + 2);
+            fs << std::setfill('0') << std::setw(2) << std::hex << cpu->top->ram_i->dp_ram_i->readByte(i + 1);
+            fs << std::setfill('0') << std::setw(2) << std::hex << cpu->top->ram_i->dp_ram_i->readByte(i + 0) << endl;
+        }
+        fs.close();
+    }
+
+....
